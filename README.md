@@ -61,6 +61,7 @@ expense-tracker-go/
 │   └── config/                ← settings from env vars                       (Phase 8)
 ├── migrations/                ← .sql files that create the tables           (Phase 2)
 ├── api.http                   ← saved requests for manual testing           (Phase 1)
+├── phases/                    ← step-by-step build guide for each phase (phase-1.md, …)
 └── notes/                     ← optional notes per phase
 ```
 
