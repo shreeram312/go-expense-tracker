@@ -181,7 +181,10 @@ and learning the standard library first makes every framework easy later.
 
 - Validation: amount must be > 0, note under 200 characters, bad JSON → 400
 - Helpers `writeJSON(w, status, data)` and `writeError(w, status, msg)`, so handlers stay short
-- Test with `curl` (or a REST client)
+- `internal/store/memory.go`: the `Expense` type plus a `MemoryStore` (map + `sync.RWMutex`) that returns
+  `ErrNotFound`. Phase 2 adds the interface and the SQLite version next to it.
+- `internal/httpapi/`: a `Server` struct that holds the store, with handlers as methods on it
+- Test with `curl` (or a REST client), and save the requests in `api.http`
 
 **Break it on purpose**
 - Remove the mutex and hit the server with many requests at once while running `go run -race`
