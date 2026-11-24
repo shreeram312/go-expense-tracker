@@ -1,11 +1,11 @@
 # Expense Tracker (Go)
 
 My first Go backend project, built to learn Go properly by building something real.
-Users sign up, log in, record their expenses in categories, filter them by month and
-see how much they spent per category.
+It's a JSON REST API: users sign up, log in, record their expenses in categories,
+filter them by month and see how much they spent per category.
 
-- **The backend is mine:** I write every line of Go myself.
-- **The frontend is AI's job:** it gets vibe-coded later from the API contract below.
+- **API only:** no frontend. I test everything with `curl` or a REST client.
+- **I write every line of Go myself.**
 - **The goal is learning, not shipping.** This won't be production-grade at first, and that's fine.
 
 What I knew when I started: structs, interfaces, channels, mutexes.
@@ -49,20 +49,23 @@ No hurry. One phase might take a few days or a week, and that's fine.
 ```
 expense-tracker-go/
 ├── README.md                  ← this file
-├── notes/                     ← my answers to each phase's checkpoint questions
-├── backend/
-│   ├── go.mod
-│   ├── cmd/
-│   │   └── api/
-│   │       └── main.go        ← starts the server, wires everything together
-│   ├── internal/
-│   │   ├── httpapi/           ← handlers, routes, middleware, JSON helpers   (Phase 1)
-│   │   ├── store/             ← database code: users, expenses, categories  (Phase 2)
-│   │   ├── auth/              ← password hashing + JWT                       (Phases 3–4)
-│   │   └── config/            ← settings from env vars                       (Phase 8)
-│   └── migrations/            ← .sql files that create the tables           (Phase 2)
-└── frontend/                  ← built by AI later
+├── go.mod                     ← module: expense-tracker
+├── .gitignore                 ← bin/, *.db
+├── cmd/
+│   └── api/
+│       └── main.go            ← starts the server, wires everything together
+├── internal/
+│   ├── httpapi/               ← handlers, routes, middleware, JSON helpers   (Phase 1)
+│   ├── store/                 ← database code: users, expenses, categories  (Phase 2)
+│   ├── auth/                  ← password hashing + JWT                       (Phases 3–4)
+│   └── config/                ← settings from env vars                       (Phase 8)
+├── migrations/                ← .sql files that create the tables           (Phase 2)
+├── api.http                   ← saved requests for manual testing           (Phase 1)
+└── notes/                     ← optional notes per phase
 ```
+
+The Go module sits at the repo root, and every import starts with `expense-tracker/`
+(for example `expense-tracker/internal/httpapi`).
 
 **Rule: only create a folder in the phase that needs it.** No empty folders on day one.
 
@@ -116,9 +119,11 @@ and learning the standard library first makes every framework easy later.
 - Commands: `go mod init`, `go run`, `go build`, `gofmt`, `go vet`, `./...`
 
 **Build**
-1. In `backend/`, run `go mod init expense-tracker-go`
+1. At the repo root, run `go mod init expense-tracker`
 2. `cmd/api/main.go` prints `starting expense tracker...` (`go run ./cmd/api`)
 3. `internal/httpapi/hello.go` has `Greeting() string`; call it from `main.go`
+4. Add a `.gitignore` with `bin/` (and later `*.db`), then `go build -o bin/api ./cmd/api` and run `./bin/api`
+5. Group imports: standard library first, a blank line, then `expense-tracker/...`
 
 **Break it on purpose**
 - Rename `Greeting` → `greeting` and read the error
@@ -527,7 +532,8 @@ Pick any, in any order:
 - **Config:** `internal/config` reads `PORT`, `DB_PATH` and `JWT_SECRET` from env vars, with defaults
 - **Structured logging:** `log/slog`
 - **Graceful shutdown:** `http.Server.Shutdown` + `signal.NotifyContext`
-- **Panic recovery middleware** and **CORS** for the frontend
+- **Panic recovery middleware**
+- **Request IDs:** a middleware that tags each request with an id and puts it in the logs
 - **Sessions:** rebuild login with a cookie + `sessions` table, then compare it with JWT (logout, revoking access)
 - **Refresh tokens:** short-lived access token + long-lived refresh token
 - **Docker:** a multi-stage `Dockerfile`
@@ -535,7 +541,7 @@ Pick any, in any order:
 
 ---
 
-## API contract (for the AI-built frontend)
+## API contract (what the finished API looks like)
 
 All responses are JSON. Errors look like `{"error": "message"}`.
 Protected routes need `Authorization: Bearer <token>`.
@@ -557,15 +563,22 @@ Protected routes need `Authorization: Bearer <token>`.
 | `DELETE` | `/expenses/{id}` | yes | | 204 |
 | `GET` | `/summary` | yes | `?month=YYYY-MM` | `{month, total_paise, by_category: [{category, total_paise}]}` |
 
-**Frontend (later, AI-built):** login/signup pages, an expense list with a month picker and
-category filter, an add/edit form, and a summary page with a pie chart.
+**Testing by hand:** keep every request in `api.http` (works with the VS Code "REST Client"
+extension or JetBrains' HTTP client), or use `curl`:
+
+```bash
+curl -i -X POST localhost:8080/expenses -H 'Content-Type: application/json' -d '{"amount_paise": 24950, "note": "lunch"}'
+```
+
+`-i` prints the status line and headers, so you can see 201 vs 400 at a glance.
 
 ---
 
 ## Commands
 
+Run from the repo root:
+
 ```bash
-cd backend
 go run ./cmd/api          # run the server
 go build -o bin/api ./cmd/api
 go fmt ./...              # format
