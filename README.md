@@ -17,10 +17,11 @@ The main things I want out of it: **auth** and **CRUD**.
 
 Every phase follows the same four steps. I don't move on until all four are done.
 
-1. **Theory:** read and understand the concepts before writing any code.
+1. **Theory:** read the concepts and the **key questions with their answers** before writing any code.
 2. **Build:** write the code myself. AI gives hints, not solutions, unless I ask.
 3. **Review:** get the code reviewed and fix what comes up.
-4. **Checkpoint:** answer the phase's questions in my own words, in `notes/phase-N.md`.
+4. **Recap:** reread the answered questions now that I've built it; they make more sense after the code.
+   Optional: jot anything that surprised me in `notes/phase-N.md`.
 
 Each phase also has a **"break it on purpose"** step, because seeing the error teaches
 more than reading about it.
@@ -124,11 +125,27 @@ and learning the standard library first makes every framework easy later.
 - Add an unused import or variable
 - Mess up the formatting, then run `gofmt -w .`
 
-**Checkpoint**
-1. What's the difference between a module and a package?
-2. Why did `greeting()` fail when called from `main`?
-3. What does `internal/` protect against?
-4. Why are unused imports a compile error instead of a warning?
+**Key questions (answered)**
+
+1. **What's the difference between a module and a package?**
+   A *module* is the whole project: it's defined by `go.mod`, which holds its name (the module path) and
+   its dependencies. A *package* is one folder of `.go` files that all start with the same `package xyz`
+   line. A module contains many packages; you import a package as `<module path>/<folder>`.
+
+2. **Why does `greeting()` fail when called from `main`?**
+   A lowercase first letter means *unexported*: only code inside `package httpapi` can see it.
+   `main` is a different package, so the compiler stops with an error like
+   `undefined: httpapi.greeting`. Capitalise it (`Greeting`) to export it.
+
+3. **What does `internal/` protect against?**
+   Other projects importing your code. Anything under `internal/` can only be imported by code inside
+   the folder that contains `internal/`. That means you can change or delete it freely without breaking
+   anyone else, and the compiler enforces it.
+
+4. **Why are unused imports a compile error instead of a warning?**
+   Go has no warnings: something is either a problem (error) or fine. Unused imports slow compilation
+   and usually mean leftover or half-finished code, so Go keeps code clean by refusing to build.
+   If you really need one for its side effects, write `import _ "pkg"`.
 
 **Reading:** [Tour of Go: Basics](https://go.dev/tour/basics/1) · [Organizing a Go module](https://go.dev/doc/modules/layout)
 
@@ -166,11 +183,33 @@ and learning the standard library first makes every framework easy later.
 - Make a struct field lowercase and see it vanish from the JSON
 - Send invalid JSON and make sure you get a 400, not a crash
 
-**Checkpoint**
-1. What does the `http.Handler` interface look like, and why is it so powerful?
-2. Why do struct fields need to be exported for `encoding/json`?
-3. Why does the map need a mutex even though you never started a goroutine?
-4. When do you return 201 vs 200 vs 204?
+**Key questions (answered)**
+
+1. **What does the `http.Handler` interface look like, and why is it so powerful?**
+   ```go
+   type Handler interface {
+       ServeHTTP(w http.ResponseWriter, r *http.Request)
+   }
+   ```
+   It has one method, so almost anything can be a handler: a plain function (via `http.HandlerFunc`),
+   a struct that holds dependencies like a store, the router (`ServeMux` is itself a Handler), or
+   middleware that wraps another handler. Because everything shares one shape, pieces snap together.
+
+2. **Why do struct fields need to be exported for `encoding/json`?**
+   `encoding/json` is a different package and reads your struct using reflection, which can only see
+   exported fields. Lowercase fields are **silently skipped**: no error, just missing from the JSON.
+   Use struct tags to control the JSON name: `AmountPaise int64 \`json:"amount_paise"\``.
+
+3. **Why does the map need a mutex even though you never started a goroutine?**
+   `net/http` starts one goroutine per incoming request. Two requests at the same time means two
+   goroutines touching the same map, which is a data race, and Go maps crash with
+   `fatal error: concurrent map writes`. `sync.RWMutex` allows many readers at once (`RLock`) or a single
+   writer (`Lock`).
+
+4. **When do you return 201 vs 200 vs 204?**
+   - **201 Created:** a `POST` created something new (return the new object).
+   - **200 OK:** a successful read or update that returns a body.
+   - **204 No Content:** success with nothing to send back, typical for `DELETE`.
 
 **Reading:** [Go by Example: HTTP server](https://gobyexample.com/http-server) · [Go by Example: JSON](https://gobyexample.com/json) · [net/http routing patterns](https://go.dev/blog/routing-enhancements)
 
@@ -202,11 +241,27 @@ and learning the standard library first makes every framework easy later.
 - Forget `rows.Close()` and think through what leaks
 - Ask for an id that doesn't exist and check that you get a 404, not a 500
 
-**Checkpoint**
-1. Why are placeholders safe and string concatenation not?
-2. What did the `ExpenseStore` interface buy you when switching from map to SQLite?
-3. What happens if you forget `defer rows.Close()`?
-4. What is a migration, and why not just edit the table by hand?
+**Key questions (answered)**
+
+1. **Why are placeholders safe and string concatenation not?**
+   With `?`, the SQL text and the values travel to the database separately. The database parses the
+   query first, so a value is always treated as *data*, never as SQL. With `fmt.Sprintf`, input like
+   `1 OR 1=1` becomes part of the SQL itself and returns every row (SQL injection).
+
+2. **What did the `ExpenseStore` interface buy you when switching from map to SQLite?**
+   Handlers depend on the interface, not on a concrete type, so switching storage changed one line in
+   `main.go` and zero lines in the handlers. It also lets tests pass in a fake store.
+
+3. **What happens if you forget `defer rows.Close()`?**
+   Each open `Rows` holds a database connection from the pool. If you return early without closing it,
+   that connection is never given back. Leak enough of them and the pool runs dry, so new requests hang
+   waiting for a connection.
+
+4. **What is a migration, and why not just edit the table by hand?**
+   A migration is a numbered SQL file that changes the schema (`001_create_expenses.sql`,
+   `002_create_users.sql`, …), run in order. It lives in git, so every machine and environment ends up
+   with the same tables and you can see how the schema evolved. Hand edits are forgotten and drift
+   between machines.
 
 **Reading:** [Go database/sql tutorial](https://go.dev/doc/tutorial/database-access) · [SQLBolt](https://sqlbolt.com/) (interactive SQL lessons)
 
@@ -235,11 +290,28 @@ and learning the standard library first makes every framework easy later.
 - Look at the stored hash: hash the same password twice and compare the results
 - Return "user not found" vs "wrong password" and think about why that helps an attacker
 
-**Checkpoint**
-1. Hashing vs encryption: what's the difference, and why hash passwords?
-2. Why does bcrypt produce a different hash for the same password each time?
-3. Why shouldn't login say *which* part was wrong?
-4. Authentication vs authorization, in one line each.
+**Key questions (answered)**
+
+1. **Hashing vs encryption: what's the difference, and why hash passwords?**
+   Encryption is reversible: anyone with the key gets the original back. Hashing is one-way. The server
+   never needs your actual password, only to check that a guess matches, so it stores a hash. If the
+   database leaks, attackers can't reverse the hashes; they have to guess passwords one by one, and
+   bcrypt makes each guess slow.
+
+2. **Why does bcrypt produce a different hash for the same password each time?**
+   bcrypt generates a random *salt* per hash and stores it inside the hash string
+   (`$2a$10$<salt><hash>`). So identical passwords get different hashes: attackers can't use
+   precomputed tables, and can't spot two users sharing a password. `CompareHashAndPassword` reads the
+   salt back out of the stored hash to check a login.
+
+3. **Why shouldn't login say *which* part was wrong?**
+   "No account with that email" tells an attacker which emails are registered (user enumeration). They
+   can then focus password guessing on real accounts, and it leaks who uses your app. Always say
+   "invalid email or password".
+
+4. **Authentication vs authorization, in one line each.**
+   - *Authentication:* proving who you are (logging in).
+   - *Authorization:* deciding what you're allowed to do (may you edit expense #7?).
 
 **Reading:** [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) · [bcrypt package docs](https://pkg.go.dev/golang.org/x/crypto/bcrypt)
 
@@ -271,11 +343,30 @@ and learning the standard library first makes every framework easy later.
 - Change one character of the payload at jwt.io and watch verification fail
 - Sign with one secret and verify with another
 
-**Checkpoint**
-1. What are the three parts of a JWT, and which part stops tampering?
-2. Can anyone read what's inside a JWT? What does that mean for what you put in it?
-3. Explain middleware in your own words. Why is it a function returning a function?
-4. Why use `context` to pass the user id instead of a global variable?
+**Key questions (answered)**
+
+1. **What are the three parts of a JWT, and which part stops tampering?**
+   `header.payload.signature`. The header says which algorithm was used, the payload holds the claims
+   (`sub`, `exp`, …), and the signature is `HMAC-SHA256(header + "." + payload, secret)`. **The signature
+   stops tampering:** change one byte of the payload and the signature no longer matches, and nobody
+   can make a new valid one without the secret.
+
+2. **Can anyone read what's inside a JWT? What does that mean for what you put in it?**
+   Yes. The header and payload are only base64url-*encoded*, not encrypted; paste one into jwt.io and
+   read it. Signed means "can't be changed", not "can't be read". Only put non-secret things in it:
+   user id, expiry. Never passwords or private data.
+
+3. **Explain middleware. Why is it a function returning a function?**
+   Middleware is code that runs before and/or after a handler: checking auth, logging, recovering
+   from panics. Its shape is `func(next http.Handler) http.Handler`. It takes the next handler and
+   returns a new handler that does its own work and then calls `next`. The returned function remembers
+   `next` (a closure), which lets you chain them: `logging(requireAuth(mux))`.
+
+4. **Why use `context` to pass the user id instead of a global variable?**
+   Many requests run at once, each in its own goroutine. A global would be shared by all of them, so
+   requests would overwrite each other's user (a data race, and a security bug). A context belongs to
+   one request and flows down through every function it calls. It also carries cancellation, for
+   example when the client disconnects.
 
 **Reading:** [Introduction to JWT](https://jwt.io/introduction) · [Go by Example: Context](https://gobyexample.com/context) · [golang-jwt docs](https://pkg.go.dev/github.com/golang-jwt/jwt/v5)
 
@@ -300,10 +391,20 @@ and learning the standard library first makes every framework easy later.
 - Create two users. As user B, try `GET`, `PUT` and `DELETE` on user A's expense id
 - Send `"user_id": <someone else>` in the body and make sure it's ignored
 
-**Checkpoint**
-1. What is IDOR? Give an example from this app.
-2. Why should the user id come from the token and not the request body?
-3. Why 404 instead of 403 here?
+**Key questions (answered)**
+
+1. **What is IDOR? Give an example from this app.**
+   Insecure Direct Object Reference: the API trusts an id sent by the client without checking who owns
+   it. Here: user B calls `GET /expenses/7`, expense 7 belongs to user A, and the query was
+   `WHERE id = ?` without `AND user_id = ?`, so B sees A's data.
+
+2. **Why should the user id come from the token and not the request body?**
+   The body is written by the client, and anyone can type any `user_id` into it. The token was signed
+   by your server, so the user id inside it can't be faked.
+
+3. **Why 404 instead of 403 here?**
+   403 says "this exists, but it isn't yours", which confirms the id is real and lets someone map out
+   other users' data. 404 says "from where you stand, this doesn't exist", which reveals nothing.
 
 **Reading:** [OWASP API Security: Broken Object Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
 
@@ -332,11 +433,34 @@ and learning the standard library first makes every framework easy later.
 - `?month=banana`, `?limit=-5`, `?limit=100000`
 - Use a category id that belongs to another user when creating an expense
 
-**Checkpoint**
-1. What does `GROUP BY` do? Write the summary query from memory.
-2. Why does Go use `2006-01-02` as its date format?
-3. Why cap `limit`?
-4. What does an index cost you, and what does it buy?
+**Key questions (answered)**
+
+1. **What does `GROUP BY` do? What's the summary query?**
+   It collapses rows that share a value into one row per group, and aggregate functions (`SUM`,
+   `COUNT`) are computed per group:
+   ```sql
+   SELECT c.name, SUM(e.amount_paise) AS total_paise
+   FROM expenses e
+   JOIN categories c ON c.id = e.category_id
+   WHERE e.user_id = ? AND e.spent_on >= ? AND e.spent_on < ?   -- first day of month, first day of next
+   GROUP BY c.id, c.name
+   ORDER BY total_paise DESC;
+   ```
+
+2. **Why does Go use `2006-01-02` as its date format?**
+   Go doesn't use `YYYY-MM-DD` codes. Instead you write how one fixed reference moment would look:
+   `Mon Jan 2 15:04:05 MST 2006`, which is 01/02 03:04:05 PM '06 (counting 1, 2, 3, 4, 5, 6).
+   `2006-01-02` means "year-month-day".
+
+3. **Why cap `limit`?**
+   Without a cap, a client can ask for `?limit=1000000`, making the database read everything, the
+   server hold it all in memory and send a huge response. That's an easy way to slow down or crash the
+   server. Clamp it to a maximum such as 100.
+
+4. **What does an index cost you, and what does it buy?**
+   It costs disk space and slightly slower writes, because every insert or update also updates the
+   index. It buys fast lookups: the database jumps straight to the matching rows instead of scanning
+   the whole table. Index the columns you filter on often, like `(user_id, spent_on)`.
 
 **Reading:** [SQLBolt lessons 6–12](https://sqlbolt.com/) (joins, aggregates) · [Go by Example: Time formatting](https://gobyexample.com/time-formatting-parsing)
 
@@ -358,10 +482,40 @@ and learning the standard library first makes every framework easy later.
 - Handler tests: each status code path (201, 400, 401, 404)
 - One end-to-end test: signup → login → create expense → list → other user can't see it
 
-**Checkpoint**
-1. What does a table-driven test look like, and why does Go favour it?
-2. When do you use `NewRecorder` vs `NewServer`?
-3. What did the tests catch that manual testing missed?
+**Key questions (answered)**
+
+1. **What does a table-driven test look like, and why does Go favour it?**
+   ```go
+   tests := []struct {
+       name    string
+       amount  int64
+       wantErr bool
+   }{
+       {"positive amount", 2500, false},
+       {"zero amount", 0, true},
+       {"negative amount", -10, true},
+   }
+   for _, tc := range tests {
+       t.Run(tc.name, func(t *testing.T) {
+           err := validateAmount(tc.amount)
+           if (err != nil) != tc.wantErr {
+               t.Errorf("got err=%v, wantErr=%v", err, tc.wantErr)
+           }
+       })
+   }
+   ```
+   Adding a case is one line, the checking code is written once, and a failure prints the case name.
+
+2. **When do you use `NewRecorder` vs `NewServer`?**
+   - `httptest.NewRecorder`: call one handler directly with a fake `ResponseWriter`. Fast, no network;
+     good for testing one handler's logic.
+   - `httptest.NewServer`: start a real HTTP server on a random port and send real requests. Tests the
+     full stack: routing, middleware, JSON over the wire.
+
+3. **Why test the 400/401/404 paths and not just the happy path?**
+   You'll click through the happy path by hand anyway. Bugs and security holes live in the failure
+   paths: bad input, missing token, someone else's expense. Tests there also catch regressions when you
+   refactor later.
 
 **Reading:** [Go by Example: Testing](https://gobyexample.com/testing-and-benchmarking) · [Learn Go with Tests](https://quii.gitbook.io/learn-go-with-tests)
 
