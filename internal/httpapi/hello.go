@@ -1,7 +1,5 @@
 package httpapi
 
-
-
-func Greeting() string{
+func Greeting() string {
 	return "Greeting from Internal"
 }

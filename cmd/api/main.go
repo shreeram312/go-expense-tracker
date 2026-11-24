@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-func main(){
+func main() {
 	fmt.Println("Starting Expense tracker")
-	greeting:= httpapi.Greeting()
+	greeting := httpapi.Greeting()
 	fmt.Println(greeting)
 }
