@@ -6,31 +6,27 @@ import (
 	"time"
 )
 
-
 type Expense struct {
-	Id int64 `json:"id"`
-	AmountPaise int64 `json:"amount_paise"`
-	Note string `json:"note"`
-	SpentOn string `json:"spent_on"`
-	CreatedAt time.Time `json:"created_at"`
+	Id          int64     `json:"id"`
+	AmountPaise int64     `json:"amount_paise"`
+	Note        string    `json:"note"`
+	SpentOn     string    `json:"spent_on"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
-
-type MemoryStore struct{
-	mu sync.RWMutex
-	nextId int64
+type MemoryStore struct {
+	mu       sync.RWMutex
+	nextId   int64
 	expenses map[int64]Expense
 }
 
-
-func NewMemoryStore() *MemoryStore{
+func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		expenses: make(map[int64]Expense),
 	}
 }
 
-
-func (s *MemoryStore) Create(e Expense) Expense{
+func (s *MemoryStore) Create(e Expense) Expense {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -42,14 +38,13 @@ func (s *MemoryStore) Create(e Expense) Expense{
 
 }
 
-
-func (s *MemoryStore) List() []Expense{
+func (s *MemoryStore) List() []Expense {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	list:=make([]Expense,0, len(s.expenses))
-	
-	for _,expense := range s.expenses{
-		list  = append(list,expense)
+	list := make([]Expense, 0, len(s.expenses))
+
+	for _, expense := range s.expenses {
+		list = append(list, expense)
 	}
 
 	return list
@@ -57,32 +52,30 @@ func (s *MemoryStore) List() []Expense{
 
 var ErrNotFound = errors.New("expense not found")
 
-func(s *MemoryStore) Get(id int64) (Expense,error){
+func (s *MemoryStore) Get(id int64) (Expense, error) {
 	s.mu.RLock()
 	defer s.mu.Unlock()
 
-	e,ok:=s.expenses[id]
+	e, ok := s.expenses[id]
 
-
-	if !ok{
-		return Expense{},ErrNotFound
+	if !ok {
+		return Expense{}, ErrNotFound
 	}
 
 	return e, nil
 }
 
-
-func (s *MemoryStore) Delete(id int64) error{
+func (s *MemoryStore) Delete(id int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_,ok:=s.expenses[id]
+	_, ok := s.expenses[id]
 
-	if !ok{
+	if !ok {
 		return ErrNotFound
 	}
 
-	delete(s.expenses,id)
+	delete(s.expenses, id)
 
 	return nil
 

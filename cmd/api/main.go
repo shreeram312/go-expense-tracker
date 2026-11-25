@@ -11,12 +11,11 @@ func main() {
 	greeting := httpapi.Greeting()
 	fmt.Println(greeting)
 
-
-	st:=store.NewMemoryStore()
+	st := store.NewMemoryStore()
 	st.Create(store.Expense{
 		AmountPaise: 23230,
-		Note: "Lunch",
-		SpentOn: "2026-11-24",
+		Note:        "Lunch",
+		SpentOn:     "2026-11-24",
 	})
 
 	st.Create(store.Expense{AmountPaise: 15000, Note: "taxi", SpentOn: "2026-11-24"})
@@ -24,4 +23,3 @@ func main() {
 	fmt.Println(st.List())
 
 }
-	
