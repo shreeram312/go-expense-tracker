@@ -45,7 +45,7 @@ func (s *MemoryStore) Create(e Expense) Expense{
 func (s *MemoryStore) List() []Expense{
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	list:=make([]Expense,len(s.expenses))
+	list:=make([]Expense,0, len(s.expenses))
 	
 	for _,expense := range s.expenses{
 		list  = append(list,expense)
