@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -52,4 +53,37 @@ func (s *MemoryStore) List() []Expense{
 	}
 
 	return list
+}
+
+var ErrNotFound = errors.New("expense not found")
+
+func(s *MemoryStore) Get(id int64) (Expense,error){
+	s.mu.RLock()
+	defer s.mu.Unlock()
+
+	e,ok:=s.expenses[id]
+
+
+	if !ok{
+		return Expense{},ErrNotFound
+	}
+
+	return e, nil
+}
+
+
+func (s *MemoryStore) Delete(id int64) error{
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_,ok:=s.expenses[id]
+
+	if !ok{
+		return ErrNotFound
+	}
+
+	delete(s.expenses,id)
+
+	return nil
+
 }
